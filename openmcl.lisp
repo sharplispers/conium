@@ -337,7 +337,7 @@ condition."
 
 (defvar *sldb-stack-top* nil)
 (defvar *sldb-stack-top-hint* nil)
-(defvar *break-in-sldb* nil)
+(defvar *break-in-conium* nil)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* (;;(*debugger-hook* nil)
@@ -350,12 +350,12 @@ condition."
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        (*break-in-sldb* t))
+        (*break-in-conium* t))
     (funcall fun)))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setq *break-in-sldb* t))
+  (setq *break-in-conium* t))
 
 (defun backtrace-context ()
   nil)
@@ -748,13 +748,13 @@ at least the filename containing it."
 (let ((ccl::*warn-if-redefine-kernel* nil))
   (ccl::advise
    ccl::cbreak-loop
-   (if *break-in-sldb* 
-       (apply #'break-in-sldb ccl::arglist)
+   (if *break-in-conium* 
+       (apply #'break-in-conium ccl::arglist)
        (:do-it))
    :when :around
-   :name sldb-break))
+   :name conium-break))
 
-(defun break-in-sldb (x y &rest args)
+(defun break-in-conium (x y &rest args)
   (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
                                    (ccl::%get-frame-ptr))))
     (apply #'cerror y (if args "Break: ~a" x) args)))
