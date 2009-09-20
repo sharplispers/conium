@@ -10,58 +10,6 @@
 
 
 
-
-;;;; TCP server
-;;;
-;;; SCL only supports the :spawn communication style.
-;;;
-
-(defimplementation preferred-communication-style ()
-  :spawn)
-
-(defimplementation create-socket (host port)
-  (let ((addr (resolve-hostname host)))
-    (ext:create-inet-listener port :stream :host addr :reuse-address t)))
-
-(defimplementation local-port (socket)
-  (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
-
-(defimplementation close-socket (socket)
-  (ext:close-socket (socket-fd socket)))
-
-(defimplementation accept-connection (socket 
-                                      &key external-format buffering timeout)
-  (let ((external-format (or external-format :default))
-        (buffering (or buffering :full))
-        (fd (socket-fd socket)))
-      (loop
-       (let ((ready (sys:wait-until-fd-usable fd :input timeout)))
-         (unless ready
-           (error "Timeout accepting connection on socket: ~S~%" socket)))
-       (let ((new-fd (ignore-errors (ext:accept-tcp-connection fd))))
-         (when new-fd
-           (return (make-socket-io-stream new-fd external-format buffering)))))))
-
-(defimplementation set-stream-timeout (stream timeout)
-  (check-type timeout (or null real))
-  (if (fboundp 'ext::stream-timeout)
-      (setf (ext::stream-timeout stream) timeout)
-      (setf (slot-value (slot-value stream 'lisp::stream) 'lisp::timeout)
-            timeout)))
-
-;;;;; Sockets
-
-(defun socket-fd (socket)
-  "Return the file descriptor for the socket represented by 'socket."
-  (etypecase socket
-    (fixnum socket)
-    (stream (sys:fd-stream-fd socket))))
-
-(defun resolve-hostname (hostname)
-  "Return the IP address of 'hostname as an integer (in host byte-order)."
-  (let ((hostent (ext:lookup-host-entry hostname)))
-    (car (ext:host-entry-addr-list hostent))))
-
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 
@@ -72,18 +20,6 @@
 (defimplementation find-external-format (coding-system)
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
-
-(defun make-socket-io-stream (fd external-format buffering)
-  "Create a new input/output fd-stream for 'fd."
-  (let* ((stream (sys:make-fd-stream fd :input t :output t
-                                     :element-type 'base-char
-                                     :buffering buffering
-                                     :external-format external-format)))
-    ;; Ignore character conversion errors.  Without this the communication
-    ;; channel is prone to lockup if a character conversion error occurs.
-    (setf (lisp::character-conversion-stream-input-error-value stream) #\?)
-    (setf (lisp::character-conversion-stream-output-error-value stream) #\?)
-    stream))
 
 
 ;;;; Stream handling

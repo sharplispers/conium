@@ -15,29 +15,6 @@
   (require :process))
 
 
-;;;; TCP Server
-
-(defimplementation preferred-communication-style ()
-  :spawn)
-
-(defimplementation create-socket (host port)
-  (socket:make-socket :connect :passive :local-port port 
-                      :local-host host :reuse-address t))
-
-(defimplementation local-port (socket)
-  (socket:local-port socket))
-
-(defimplementation close-socket (socket)
-  (close socket))
-
-(defimplementation accept-connection (socket &key external-format buffering
-                                             timeout)
-  (declare (ignore buffering timeout))
-  (let ((s (socket:accept-connection socket :wait t)))
-    (when external-format
-      (setf (stream-external-format s) external-format))
-    s))
-
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 

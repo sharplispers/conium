@@ -61,32 +61,6 @@
     (class (class-name spec))
     (ccl::eql-specializer `(eql ,(ccl::eql-specializer-object spec)))))
 
-;;; TCP Server
-
-(defimplementation preferred-communication-style ()
-  :spawn)
-
-(defimplementation create-socket (host port)
-  (ccl:make-socket :connect :passive :local-port port 
-                   :local-host host :reuse-address t))
-
-(defimplementation local-port (socket)
-  (ccl:local-port socket))
-
-(defimplementation close-socket (socket)
-  (close socket))
-
-(defimplementation accept-connection (socket &key external-format
-                                             buffering timeout)
-  (declare (ignore buffering timeout
-                   #-openmcl-unicode-strings external-format))
-  #+openmcl-unicode-strings
-  (when external-format
-    (let ((keys (ccl::socket-keys socket)))
-      (setf (getf keys :external-format) external-format
-            (slot-value socket 'ccl::keys) keys)))
-  (ccl:accept-connection socket :wait t))
-
 #+openmcl-unicode-strings
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 

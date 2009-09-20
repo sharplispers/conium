@@ -59,60 +59,6 @@
 
 (in-package :conium)
 
-
-;;;; TCP server
-;;;
-;;; In CMUCL we support all communication styles. By default we use
-;;; `:SIGIO' because it is the most responsive, but it's somewhat
-;;; dangerous: CMUCL is not in general "signal safe", and you don't
-;;; know for sure what you'll be interrupting. Both `:FD-HANDLER' and
-;;; `:SPAWN' are reasonable alternatives.
-
-(defimplementation preferred-communication-style ()
-  :sigio)
-
-#-(or darwin mips)
-(defimplementation create-socket (host port)
-  (let* ((addr (resolve-hostname host))
-         (addr (if (not (find-symbol "SOCKET-ERROR" :ext))
-                   (ext:htonl addr)
-                   addr)))
-    (ext:create-inet-listener port :stream :reuse-address t :host addr)))
-
-;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
-#+(or darwin mips)
-(defimplementation create-socket (host port)
-  (declare (ignore host))
-  (ext:create-inet-listener port :stream :reuse-address t))
-
-(defimplementation local-port (socket)
-  (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
-
-(defimplementation close-socket (socket)
-  (let ((fd (socket-fd socket)))
-    (sys:invalidate-descriptor fd) 
-    (ext:close-socket fd)))
-
-(defimplementation accept-connection (socket &key
-                                      external-format buffering timeout)
-  (declare (ignore timeout))
-  (make-socket-io-stream (ext:accept-tcp-connection socket) 
-                         (or buffering :full)
-                         (or external-format :iso-8859-1)))
-
-;;;;; Sockets
-
-(defun socket-fd (socket)
-  "Return the filedescriptor for the socket represented by SOCKET."
-  (etypecase socket
-    (fixnum socket)
-    (sys:fd-stream (sys:fd-stream-fd socket))))
-
-(defun resolve-hostname (hostname)
-  "Return the IP address of HOSTNAME as an integer (in host byte-order)."
-  (let ((hostent (ext:lookup-host-entry hostname)))
-    (car (ext:host-entry-addr-list hostent))))
-
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1
      "latin-1" "latin-1-unix" "iso-latin-1-unix"

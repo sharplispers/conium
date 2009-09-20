@@ -160,23 +160,6 @@
 	(invoke-debugger condition))))
   nil)
 
-;;; Socket communication
-
-(defimplementation create-socket (host port)
-  (sockets:start-sockets)
-  (sockets:make-server-socket :host host :port port))
-
-(defimplementation local-port (socket)
-  (sockets:socket-port socket))
-
-(defimplementation close-socket (socket)
-  (close socket))
-
-(defimplementation accept-connection (socket
-				      &key external-format buffering timeout)
-  (declare (ignore buffering timeout external-format))
-  (sockets:make-socket-stream (sockets:accept-socket socket)))
-
 ;;; Misc
 
 (defimplementation preferred-communication-style ()

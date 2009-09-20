@@ -20,56 +20,6 @@
                                 :check-redefinition-p nil)
        ,(funcall *original-defimplementation* whole env))))
 
-;;; TCP server
-
-(defimplementation preferred-communication-style ()
-  :spawn)
-
-(defun socket-fd (socket)
-  (etypecase socket
-    (fixnum socket)
-    (comm:socket-stream (comm:socket-stream-socket socket))))
-
-(defimplementation create-socket (host port)
-  (multiple-value-bind (socket where errno)
-      #-(or lispworks4.1 (and macosx lispworks4.3))
-      (comm::create-tcp-socket-for-service port :address host)
-      #+(or lispworks4.1 (and macosx lispworks4.3))
-      (comm::create-tcp-socket-for-service port)
-    (cond (socket socket)
-          (t (error 'network-error 
-              :format-control "~A failed: ~A (~D)"
-              :format-arguments (list where 
-                                      (list #+unix (lw:get-unix-error errno))
-                                      errno))))))
-
-(defimplementation local-port (socket)
-  (nth-value 1 (comm:get-socket-address (socket-fd socket))))
-
-(defimplementation close-socket (socket)
-  (comm::close-socket (socket-fd socket)))
-
-(defimplementation accept-connection (socket 
-                                      &key external-format buffering timeout)
-  (declare (ignore buffering))
-  (let* ((fd (comm::get-fd-from-socket socket)))
-    (assert (/= fd -1))
-    (assert (valid-external-format-p external-format))
-    (cond ((member (first external-format) '(:latin-1 :ascii))
-           (make-instance 'comm:socket-stream
-                          :socket fd
-                          :direction :io
-                          :read-timeout timeout
-                          :element-type 'base-char))
-          (t
-           (make-flexi-stream 
-            (make-instance 'comm:socket-stream
-                           :socket fd
-                           :direction :io
-                           :read-timeout timeout
-                           :element-type '(unsigned-byte 8))
-            external-format)))))
-
 (defun make-flexi-stream (stream external-format)
   (unless (member :flexi-streams *features*)
     (error "Cannot use external format ~A without having installed flexi-streams in the inferior-lisp."

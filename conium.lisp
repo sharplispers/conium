@@ -123,57 +123,6 @@ The portable code calls this function at startup."
       '(:or)))
 
 
-;;;; TCP server
-
-(definterface create-socket (host port)
-  "Create a listening TCP socket on interface HOST and port PORT .")
-
-(definterface local-port (socket)
-  "Return the local port number of SOCKET.")
-
-(definterface close-socket (socket)
-  "Close the socket SOCKET.")
-
-(definterface accept-connection (socket &key external-format
-                                        buffering timeout)
-   "Accept a client connection on the listening socket SOCKET.  
-Return a stream for the new connection.")
-
-(definterface add-sigio-handler (socket fn)
-  "Call FN whenever SOCKET is readable.")
-
-(definterface remove-sigio-handlers (socket)
-  "Remove all sigio handlers for SOCKET.")
-
-(definterface add-fd-handler (socket fn)
-  "Call FN when Lisp is waiting for input and SOCKET is readable.")
-
-(definterface remove-fd-handlers (socket)
-  "Remove all fd-handlers for SOCKET.")
-
-(definterface preferred-communication-style ()
-  "Return one of the symbols :spawn, :sigio, :fd-handler, or NIL."
-  nil)
-
-(definterface set-stream-timeout (stream timeout)
-  "Set the 'stream 'timeout.  The timeout is either the real number
-  specifying the timeout in seconds or 'nil for no timeout."
-  (declare (ignore stream timeout))
-  nil)
-
-;;; Base condition for networking errors.
-(define-condition network-error (simple-error) ())
-
-(definterface emacs-connected ()
-   "Hook called when the first connection from Emacs is established.
-Called from the INIT-FN of the socket server that accepts the
-connection.
-
-This is intended for setting up extra context, e.g. to discover
-that the calling thread is the one that interacts with Emacs."
-   nil)
-
-
 ;;;; Unix signals
 
 (defconstant +sigint+ 2)

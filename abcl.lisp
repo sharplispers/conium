@@ -64,26 +64,6 @@
 (defun slot-value-using-class (class object slotdef)
   (system::slot-value object (slot-definition-name slotdef)))
 
-;;;; TCP Server
-
-
-(defimplementation preferred-communication-style ()
-  nil)
-
-(defimplementation create-socket (host port)
-  (ext:make-server-socket port))
-
-(defimplementation local-port (socket)
-  (java:jcall (java:jmethod "java.net.ServerSocket" "getLocalPort") socket))
-
-(defimplementation close-socket (socket)
-  (ext:server-socket-close socket))
-
-(defimplementation accept-connection (socket 
-                                      &key external-format buffering timeout)
-  (declare (ignore buffering timeout external-format))
-  (ext:get-socket-stream (ext:socket-accept socket)))
-
 ;;;; Unix signals
 
 (defimplementation call-without-interrupts (fn)

@@ -13,51 +13,6 @@
 (defvar *tmp*)
 
 
-;;;; TCP Server
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'sockets))
-
-(defun resolve-hostname (name)
-  (car (sb-bsd-sockets:host-ent-addresses
-        (sb-bsd-sockets:get-host-by-name name))))
-
-(defimplementation create-socket (host port)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
-    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
-    (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
-    (sb-bsd-sockets:socket-listen socket 5)
-    socket))
-
-(defimplementation local-port (socket)
-  (nth-value 1 (sb-bsd-sockets:socket-name socket)))
-
-(defimplementation close-socket (socket)
-  (sb-bsd-sockets:socket-close socket))
-
-(defimplementation accept-connection (socket
-                                      &key external-format
-                                      buffering timeout)
-  (declare (ignore buffering timeout external-format))
-  (make-socket-io-stream (accept socket)))
-
-(defun make-socket-io-stream (socket)
-  (sb-bsd-sockets:socket-make-stream socket
-                                     :output t
-                                     :input t
-                                     :element-type 'base-char))
-
-(defun accept (socket)
-  "Like socket-accept, but retry on EAGAIN."
-  (loop (handler-case
-            (return (sb-bsd-sockets:socket-accept socket))
-          (sb-bsd-sockets:interrupted-error ()))))
-
-(defimplementation preferred-communication-style ()
-  (values nil))
-
 
 ;;;; Unix signals
 

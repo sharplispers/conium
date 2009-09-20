@@ -37,7 +37,6 @@
 (in-package :conium)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  ;;(use-package "SOCKET")
   (use-package "GRAY"))
 
 ;; #+#.(cl:if (cl:find-package "LINUX") '(and) '(or))
@@ -131,43 +130,6 @@
                                          path)))
                        :name file 
                        :type type)))))
-
-;;;; TCP Server
-
-(defimplementation create-socket (host port)
-  (declare (ignore host))
-  (socket:socket-server port))
-
-(defimplementation local-port (socket)
-  (socket:socket-server-port socket))
-
-(defimplementation close-socket (socket)
-  (socket:socket-server-close socket))
-
-(defimplementation accept-connection (socket
-                                      &key external-format buffering timeout)
-  (declare (ignore buffering timeout))
-  (socket:socket-accept socket
-                        :buffered nil ;; XXX should be t
-                        :element-type 'character
-                        :external-format external-format))
-
-#-win32
-(defimplementation wait-for-input (streams &optional timeout)
-  (assert (member timeout '(nil t)))
-  (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
-    (loop
-     (cond ((check-slime-interrupts) (return :interrupt))
-           (timeout 
-            (socket:socket-status streams 0 0)
-            (return (loop for (s _ . x) in streams
-                          if x collect s)))
-           (t
-            (with-simple-restart (socket-status "Return from socket-status.")
-              (socket:socket-status streams 0 500000))
-            (let ((ready (loop for (s _ . x) in streams
-                               if x collect s)))
-              (when ready (return ready))))))))
 
 ;;;; Coding systems
 

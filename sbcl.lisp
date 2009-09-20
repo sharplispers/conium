@@ -14,7 +14,6 @@
 (in-package :conium)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix)
   (require 'sb-cltl2))
@@ -52,44 +51,6 @@
 (defimplementation getpid ()
   (sb-posix:getpid))
 
-;;; TCP Server
-
-(defimplementation preferred-communication-style ()
-  (cond
-    ;; fixme: when SBCL/win32 gains better select() support, remove
-    ;; this.
-    ((member :win32 *features*) nil)
-    ((member :sb-thread *features*) :spawn)
-    (t :fd-handler)))
-
-(defun resolve-hostname (name)
-  (car (sb-bsd-sockets:host-ent-addresses
-        (sb-bsd-sockets:get-host-by-name name))))
-
-(defimplementation create-socket (host port)
-  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
-			       :type :stream
-			       :protocol :tcp)))
-    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
-    (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
-    (sb-bsd-sockets:socket-listen socket 5)
-    socket))
-
-(defimplementation local-port (socket)
-  (nth-value 1 (sb-bsd-sockets:socket-name socket)))
-
-(defimplementation close-socket (socket)
-  (sb-sys:invalidate-descriptor (socket-fd socket))
-  (sb-bsd-sockets:socket-close socket))
-
-(defimplementation accept-connection (socket &key
-                                      external-format
-                                      buffering timeout)
-  (declare (ignore timeout))
-  (make-socket-io-stream (accept socket)
-                         (or external-format :iso-latin-1-unix)
-                         (or buffering :full)))
-
 #-win32
 (defimplementation install-sigint-handler (function)
   (sb-sys:enable-interrupt sb-unix:sigint 
@@ -118,72 +79,6 @@
   (sb-posix::fcntl fd sb-posix::f-setown (getpid))
   (values))
 
-(defimplementation add-sigio-handler (socket fn)
-  (set-sigio-handler)
-  (let ((fd (socket-fd socket)))
-    (enable-sigio-on-fd fd)
-    (push (cons fd fn) *sigio-handlers*)))
-
-(defimplementation remove-sigio-handlers (socket)
-  (let ((fd (socket-fd socket)))
-    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
-    (sb-sys:invalidate-descriptor fd))
-  (close socket))
-
-(defimplementation add-fd-handler (socket fn)
-  (declare (type function fn))
-  (let ((fd (socket-fd socket)))
-    (sb-sys:add-fd-handler fd :input (lambda (_)
-                                       _
-                                       (funcall fn)))))
-
-(defimplementation remove-fd-handlers (socket)
-  (sb-sys:invalidate-descriptor (socket-fd socket)))
-
-(defun socket-fd (socket)
-  (etypecase socket
-    (fixnum socket)
-    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
-    (file-stream (sb-sys:fd-stream-fd socket))))
-
-(defvar *wait-for-input-called*)
-
-(defimplementation wait-for-input (streams &optional timeout)
-  (assert (member timeout '(nil t)))
-  (when (boundp '*wait-for-input-called*)
-    (setq *wait-for-input-called* t))
-  (let ((*wait-for-input-called* nil))
-    (loop
-     (let ((ready (remove-if (lambda (s)
-                               (let ((c (read-char-no-hang s nil :eof)))
-                                 (case c
-                                   ((nil) t)
-                                   ((:eof) nil)
-                                   (t 
-                                    (unread-char c s)
-                                    nil))))
-                             streams)))
-       (when ready (return ready)))
-     (when timeout (return nil))
-     (when (check-slime-interrupts) (return :interrupt))
-     (when *wait-for-input-called* (return :interrupt))
-     (let* ((f (constantly t))
-            (handlers (loop for s in streams
-                            do (assert (open-stream-p s))
-                            collect (add-one-shot-handler s f))))
-       (unwind-protect
-            (sb-sys:serve-event 0.2)
-         (mapc #'sb-sys:remove-fd-handler handlers))))))
-
-(defun add-one-shot-handler (stream function)
-  (let (handler)
-    (setq handler 
-          (sb-sys:add-fd-handler (sb-sys:fd-stream-fd stream) :input
-                                 (lambda (fd)
-                                   (declare (ignore fd))
-                                   (sb-sys:remove-fd-handler handler)
-                                   (funcall function stream))))))
-
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 
@@ -201,22 +96,6 @@
 (defimplementation find-external-format (coding-system)
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
-
-(defun make-socket-io-stream (socket external-format buffering)
-  (sb-bsd-sockets:socket-make-stream socket
-                                     :output t
-                                     :input t
-                                     :element-type 'character
-                                     :buffering buffering
-                                     #+sb-unicode :external-format
-                                     #+sb-unicode external-format
-                                     ))
-
-(defun accept (socket)
-  "Like socket-accept, but retry on EAGAIN."
-  (loop (handler-case
-            (return (sb-bsd-sockets:socket-accept socket))
-          (sb-bsd-sockets:interrupted-error ()))))
 
 (defimplementation call-without-interrupts (fn)
   (declare (type function fn))
