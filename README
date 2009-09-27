@@ -12,7 +12,7 @@ regards:
 
   - Conium always uses ASDF instead of a manual load script.
 
-  - Code related to threads has been removed.  (Use bordeax-threads instead.)
+  - Code related to threads has been removed.  (Use bordeaux-threads instead.)
 
   - Code related to the MOP has been removed.  (Use closer-mop instead.)
 
