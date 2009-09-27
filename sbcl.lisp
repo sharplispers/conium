@@ -192,11 +192,11 @@
 
 ;;; Utilities
 
-#+#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
+#+#.(conium::with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
-#-#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
+#-#.(conium::with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
@@ -216,7 +216,7 @@
                                   flags :key #'ensure-list))
           (call-next-method)))))
 
-#+#.(swank-backend::with-symbol 'deftype-lambda-list 'sb-introspect)
+#+#.(conium::with-symbol 'deftype-lambda-list 'sb-introspect)
 (defmethod type-specifier-arglist :around (typespec-operator)
   (multiple-value-bind (arglist foundp)
       (sb-introspect:deftype-lambda-list typespec-operator)
@@ -401,13 +401,13 @@ compiler state."
 
 (defun get-compiler-policy (default-policy)
   (declare (ignorable default-policy))
-  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(conium::with-symbol 'restrict-compiler-policy 'sb-ext)
   (remove-duplicates (append default-policy (sb-ext:restrict-compiler-policy))
                      :key #'car))
 
 (defun set-compiler-policy (policy)
   (declare (ignorable policy))
-  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(conium::with-symbol 'restrict-compiler-policy 'sb-ext)
    (loop for (qual . value) in policy
          do (sb-ext:restrict-compiler-policy qual value)))
 
@@ -644,7 +644,7 @@ Return NIL if the symbol is unbound."
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
   
-#+#.(swank-backend::sbcl-with-xref-p)
+#+#.(conium::sbcl-with-xref-p)
 (progn
   (defmacro defxref (name)
     `(defimplementation ,name (what)
@@ -657,7 +657,7 @@ Return NIL if the symbol is unbound."
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend::with-symbol 'who-specializes 'sb-introspect)
+  #+#.(conium::with-symbol 'who-specializes 'sb-introspect)
   (defxref who-specializes))
 
 (defun source-location-for-xref-data (xref-data)
@@ -700,9 +700,9 @@ Return NIL if the symbol is unbound."
                 (equal (second a) (second b))))))
 
 (defun ignored-xref-function-names ()
-  #-#.(swank-backend::sbcl-with-new-stepper-p)
+  #-#.(conium::sbcl-with-new-stepper-p)
   '(nil sb-c::step-form sb-c::step-values)
-  #+#.(swank-backend::sbcl-with-new-stepper-p)
+  #+#.(conium::sbcl-with-new-stepper-p)
   '(nil))
 
 (defun function-dspec (fn)
@@ -736,7 +736,7 @@ Return a list of the form (NAME LOCATION)."
   (setq sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defimplementation condition-extras (condition)
-  (cond #+#.(swank-backend::sbcl-with-new-stepper-p)
+  (cond #+#.(conium::sbcl-with-new-stepper-p)
         ((typep condition 'sb-impl::step-form-condition)
          `((:show-frame-source 0)))
         ((typep condition 'sb-int:reference-condition)
@@ -766,7 +766,7 @@ Return a list of the form (NAME LOCATION)."
                                :original-condition condition)))))
       (funcall debugger-loop-fn))))
 
-#+#.(swank-backend::sbcl-with-new-stepper-p)
+#+#.(conium::sbcl-with-new-stepper-p)
 (progn
   (defimplementation activate-stepping (frame)
     (declare (ignore frame))
@@ -783,14 +783,14 @@ Return a list of the form (NAME LOCATION)."
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
         (sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook))
-        #+#.(swank-backend::sbcl-with-new-stepper-p)
+        #+#.(conium::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
            (typecase condition
              (sb-ext:step-form-condition
               (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
                 (sb-impl::invoke-debugger condition)))))))
-    (handler-bind (#+#.(swank-backend::sbcl-with-new-stepper-p)
+    (handler-bind (#+#.(conium::sbcl-with-new-stepper-p)
                    (sb-ext:step-condition #'sb-impl::invoke-stepper))
       (funcall fun))))
 
@@ -812,7 +812,7 @@ stack."
   (sb-debug::print-frame-call frame stream))
 
 (defimplementation frame-restartable-p (frame)
-  #+#.(swank-backend::sbcl-with-restart-frame)
+  #+#.(conium::sbcl-with-restart-frame)
   (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
 ;;;; Code-location -> source-location translation
@@ -828,11 +828,11 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
-        #+#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
+        #+#.(conium::with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
           (:lisp (lisp-source-location code-location)))
-        #-#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
+        #-#.(conium::with-symbol 'debug-source-from 'sb-di)
         (if (sb-di:debug-source-namestring dsource)
             (file-source-location code-location)
             (lisp-source-location code-location)))))
@@ -889,10 +889,10 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (#+#.(swank-backend::with-symbol
+  (namestring (truename (#+#.(conium::with-symbol
                               'debug-source-name 'sb-di)
                              sb-c::debug-source-name
-                             #-#.(swank-backend::with-symbol
+                             #-#.(conium::with-symbol
                                   'debug-source-name 'sb-di)
                              sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))
@@ -972,7 +972,7 @@ stack."
                                           (sb-di:frame-code-location frame)))
              frame)))
 
-#+#.(swank-backend::sbcl-with-restart-frame)
+#+#.(conium::sbcl-with-restart-frame)
 (progn
   (defimplementation return-from-frame (index form)
     (let* ((frame (nth-frame index)))
@@ -998,7 +998,7 @@ stack."
 ;; FIXME: this implementation doesn't unwind the stack before
 ;; re-invoking the function, but it's better than no implementation at
 ;; all.
-#-#.(swank-backend::sbcl-with-restart-frame)
+#-#.(conium::sbcl-with-restart-frame)
 (progn
   (defun sb-debug-catch-tag-p (tag)
     (and (symbolp tag)
@@ -1177,19 +1177,19 @@ stack."
 ;;; Weak datastructures
 
 (defimplementation make-weak-key-hash-table (&rest args)  
-  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  #+#.(conium::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :key args)
-  #-#.(swank-backend::sbcl-with-weak-hash-tables)
+  #-#.(conium::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation make-weak-value-hash-table (&rest args)
-  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  #+#.(conium::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table :weakness :value args)
-  #-#.(swank-backend::sbcl-with-weak-hash-tables)
+  #-#.(conium::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
 
 (defimplementation hash-table-weakness (hashtable)
-  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  #+#.(conium::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
 
 #-win32
