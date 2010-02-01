@@ -25,7 +25,7 @@
 		 #+ecl (:file "source-path-parser")
 		 #+ecl (:file "source-file-cache")
 
-		 #+allegro (:file "swank-allegro")
+		 #+allegro (:file "allegro")
 		 #+ccl (:file "openmcl")
 		 #+clisp (:file "clisp")
 		 #+ecl (:file "ecl")
