@@ -20,8 +20,7 @@
 
 (declaim (optimize (debug 2) 
                    (sb-c::insert-step-conditions 0)
-                   (sb-c::insert-debug-catch 0)
-                   (sb-c::merge-tail-calls 2)))
+                   (sb-c::insert-debug-catch 0)))
 
 ;;; backwards compability tests
 
@@ -38,7 +37,16 @@
     (with-symbol 'who-calls 'sb-introspect))
   ;; ... for restart-frame support (1.0.2)
   (defun sbcl-with-restart-frame ()
-    (with-symbol 'frame-has-debug-tag-p 'sb-debug)))
+    (with-symbol 'frame-has-debug-tag-p 'sb-debug))
+  ;; ... for :setf :inverse info (1.1.17)
+  (defun sbcl-with-setf-inverse-meta-info ()
+    (boolean-to-feature-expression
+     ;; going through FIND-SYMBOL since META-INFO was renamed from
+     ;; TYPE-INFO in 1.2.10.
+     (let ((sym (find-symbol "META-INFO" "SB-C")))
+       (and sym
+            (fboundp sym)
+            (funcall sym :setf :inverse ())))))) 
 
 ;;; Connection info
 
@@ -598,6 +606,12 @@ This is useful when debugging the definition-finding code.")
         (error (e)
           (list :error (format nil "Error: ~A" e))))))
 
+(defun setf-expander (symbol)
+  (or
+   #+#.(conium::sbcl-with-setf-inverse-meta-info)
+   (sb-int:info :setf :inverse symbol)
+   (sb-int:info :setf :expander symbol)))
+
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
@@ -622,9 +636,8 @@ Return NIL if the symbol is unbound."
 	       (t :function))
 	 (doc 'function)))
       (maybe-push
-       :setf (if (or (sb-int:info :setf :inverse symbol)
-		     (sb-int:info :setf :expander symbol))
-		 (doc 'setf)))
+       :setf (and (setf-expander symbol)
+                  (doc 'setf)))
       (maybe-push
        :type (if (sb-int:info :type :kind symbol)
 		 (doc 'type)))
@@ -637,8 +650,7 @@ Return NIL if the symbol is unbound."
     (:function
      (describe (symbol-function symbol)))
     (:setf
-     (describe (or (sb-int:info :setf :inverse symbol)
-                   (sb-int:info :setf :expander symbol))))
+     (describe (setf-expander symbol)))
     (:class
      (describe (find-class symbol)))
     (:type
@@ -1125,12 +1137,15 @@ stack."
 
 
 (defimplementation quit-lisp ()
-  #+sb-thread
-  (dolist (thread (remove (current-thread) (all-threads)))
-    (ignore-errors (sb-thread:interrupt-thread
-                    thread (lambda () (sb-ext:quit :recklessly-p t)))))
-  (sb-ext:quit))
-
+  #+#.(conium::with-symbol 'exit 'sb-ext)
+  (sb-ext:exit)
+  #-#.(conium::with-symbol 'exit 'sb-ext)
+  (progn
+    #+sb-thread
+    (dolist (thread (remove (current-thread) (all-threads)))
+      (ignore-errors (sb-thread:interrupt-thread
+                      thread (lambda () (sb-ext:quit :recklessly-p t)))))
+    (sb-ext:quit)))
 
 
 ;;Trace implementations

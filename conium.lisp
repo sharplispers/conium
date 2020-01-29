@@ -116,6 +116,12 @@ The portable code calls this function at startup."
                      (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
           ,@body)))))
 
+(defun boolean-to-feature-expression (value)
+  "Converts a boolean VALUE to a form suitable for testing with #+."
+  (if value
+      '(:and)
+      '(:or)))
+
 (defun with-symbol (name package)
   "Generate a form suitable for testing with #+."
   (if (find-symbol (string name) (string package))
