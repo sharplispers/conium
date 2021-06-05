@@ -1081,7 +1081,6 @@ stack."
          (label-value-line*
           (:name (sb-kernel:%simple-fun-name o))
           (:arglist (sb-kernel:%simple-fun-arglist o))
-          (:next (sb-kernel:%simple-fun-next o))
           (:type (sb-kernel:%simple-fun-type o))
           (:code (sb-kernel:fun-code-header o))))
         ((sb-kernel:closurep o)
